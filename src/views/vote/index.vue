@@ -73,7 +73,7 @@
 import checkPermission from '@/utils/permission'
 import initData from '@/mixins/initData'
 import initDict from '@/mixins/initDict'
-import { del } from '@/api/job'
+import { del } from '@/api/vote'
 import { parseTime } from '@/utils/index'
 import eForm from './form'
 export default {
@@ -84,8 +84,8 @@ export default {
     return {
       delLoading: false,
       enabledTypeOptions: [
-        { key: 'true', display_name: '正常' },
-        { key: 'false', display_name: '禁用' }
+        { key: 'true', display_name: '发布' },
+        { key: 'false', display_name: '下线' }
       ]
     }
   },
@@ -93,7 +93,7 @@ export default {
     this.$nextTick(() => {
       this.init()
       // 加载数据字典
-      this.getDict('job_status')
+      this.getDict('vote_status')
     })
   },
   methods: {
