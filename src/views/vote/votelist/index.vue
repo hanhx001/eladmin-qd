@@ -3,13 +3,13 @@
     <!--工具栏-->
     <div class="head-container">
       <!-- 搜索 -->
-      <el-input v-model="query.value" clearable placeholder="输入岗位名称搜索" style="width: 200px;" class="filter-item" @keyup.enter.native="toQuery"/>
+      <el-input v-model="query.value" clearable placeholder="输入名称搜索" style="width: 200px;" class="filter-item" @keyup.enter.native="toQuery"/>
       <el-select v-model="query.enabled" clearable placeholder="状态" class="filter-item" style="width: 90px" @change="toQuery">
         <el-option v-for="item in enabledTypeOptions" :key="item.key" :label="item.display_name" :value="item.key"/>
       </el-select>
       <el-button class="filter-item" size="mini" type="success" icon="el-icon-search" @click="toQuery">搜索</el-button>
       <!-- 新增 -->
-      <div v-permission="['ADMIN','VOTE_ALL','VOTE_ADD']" style="display: inline-block;margin: 0px 2px;">
+      <div style="display: inline-block;margin: 0px 2px;">
         <el-button
           class="filter-item"
           size="mini"
@@ -19,15 +19,22 @@
       </div>
     </div>
     <!--表单组件-->
-    <eForm ref="form" :is-add="isAdd" :dicts="dicts"/>
+    <!-- <eForm ref="form" :is-add="isAdd" :dicts="dicts"/> -->
     <!--表格渲染-->
     <el-table v-loading="loading" :data="data" size="small" style="width: 100%;">
-      <el-table-column prop="topicName" label="主题名称"/>
+      <el-table-column prop="topicName" label="投票标题"/>
       <el-table-column prop="sort" label="排序">
         <template slot-scope="scope">
           {{ scope.row.sort }}
         </template>
       </el-table-column>
+      
+      <el-table-column prop="username" label="创建人员">
+        <template slot-scope="scope">
+          {{ scope.row }}
+        </template>
+      </el-table-column> 
+    
       <el-table-column label="状态" align="center">
         <template slot-scope="scope">
           <div v-for="item in dicts" :key="item.id">
@@ -40,11 +47,10 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column v-if="checkPermission(['ADMIN','VOTE_ALL','VOTE_EDIT'])" label="操作" width="130px" align="center" fixed="right">
+      <el-table-column label="操作" width="130px" align="center" fixed="right">
         <template slot-scope="scope">
-          <el-button v-permission="['ADMIN','VOTE_ALL','VOTE_EDIT']" size="mini" type="primary" icon="el-icon-edit" @click="edit(scope.row)"/>
+          <el-button size="mini" type="primary" icon="el-icon-edit" @click="edit(scope.row)"/>
           <el-popover
-            v-permission="['ADMIN','VOTE_ALL','VOTE_DELETE']"
             :ref="scope.row.id"
             placement="top"
             width="180">
@@ -66,22 +72,24 @@
       layout="total, prev, pager, next, sizes"
       @size-change="sizeChange"
       @current-change="pageChange"/>
+
   </div>
 </template>
 
 <script>
-import checkPermission from '@/utils/permission'
+// import checkPermission from '@/utils/permission'
 import initData from '@/mixins/initData'
 import initDict from '@/mixins/initDict'
 import { del } from '@/api/vote'
 import { parseTime } from '@/utils/index'
-import eForm from './form'
+
 export default {
   name: 'Votelist',
-  components: { eForm },
+  components: {  },
   mixins: [initData, initDict],
   data() {
     return {
+      isAdd: false,
       delLoading: false,
       enabledTypeOptions: [
         { key: 'true', display_name: '发布' },
@@ -98,7 +106,7 @@ export default {
   },
   methods: {
     parseTime,
-    checkPermission,
+    // checkPermission,
     beforeInit() {
       this.url = 'api/voteTopic'
       const sort = 'sort,asc'
@@ -128,26 +136,39 @@ export default {
         console.log(err.response.data.message)
       })
     },
-    add() {
+    add() { 
+      /*
       this.isAdd = true
       this.$refs.form.getDepts()
       this.$refs.form.dialog = true
+      */
+
+      this.$router.push({
+            path: '/vote/addvote',
+      })
+
     },
     edit(data) {
+      /*
       this.isAdd = false
+      debugger;
       const _this = this.$refs.form
-      _this.getDepts()
+      // _this.getDepts()
       _this.form = {
         id: data.id,
         name: data.name,
         sort: data.sort,
         enabled: data.enabled.toString(),
         createTime: data.createTime,
-        dept: { id: data.dept.id }
+        // dept: { id: data.dept.id }
       }
-      _this.deptId = data.dept.id
+      // _this.deptId = data.dept.id
       _this.dialog = true
-    }
+      */
+        this.$router.push({
+              path: '/vote/editvote',
+        });
+    },
   }
 }
 </script>
