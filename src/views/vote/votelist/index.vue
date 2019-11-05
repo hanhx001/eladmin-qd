@@ -9,7 +9,7 @@
       </el-select>
       <el-button class="filter-item" size="mini" type="success" icon="el-icon-search" @click="toQuery">搜索</el-button>
       <!-- 新增 -->
-      <div style="display: inline-block;margin: 0px 2px;">
+      <div v-permission="['admin','dept:add']" style="display: inline-block;margin: 0px 2px;">
         <el-button
           class="filter-item"
           size="mini"
@@ -47,9 +47,9 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="130px" align="center" fixed="right">
+      <el-table-column v-if="checkPermission(['admin','dept:edit','dept:del'])" label="操作" width="130px" align="center" fixed="right">
         <template slot-scope="scope">
-          <el-button size="mini" type="primary" icon="el-icon-edit" @click="edit(scope.row)"/>
+          <el-button size="mini" type="primary" v-permission="['admin','dept:edit']" icon="el-icon-edit" @click="edit(scope.row)"/>
           <el-popover
             :ref="scope.row.id"
             placement="top"
@@ -77,16 +77,17 @@
 </template>
 
 <script>
-// import checkPermission from '@/utils/permission'
+import checkPermission from '@/utils/permission'
 import initData from '@/mixins/initData'
-import initDict from '@/mixins/initDict'
+// import initDict from '@/mixins/initDict'
 import { del } from '@/api/vote'
 import { parseTime } from '@/utils/index'
 
 export default {
-  name: 'Votelist',
+  name: 'voteList',
   components: {  },
-  mixins: [initData, initDict],
+  mixins: [initData],
+  dicts: ['dept_status'],  
   data() {
     return {
       isAdd: false,
@@ -98,10 +99,11 @@ export default {
     }
   },
   created() {
+    //console.log(this.dict.vote_status)
     this.$nextTick(() => {
       this.init()
       // 加载数据字典
-      this.getDict('vote_status')
+      // this.getDict('vote_status')
     })
   },
   methods: {
