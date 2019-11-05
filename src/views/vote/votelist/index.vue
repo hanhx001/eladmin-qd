@@ -3,13 +3,22 @@
     <!--工具栏-->
     <div class="head-container">
       <!-- 搜索 -->
-      <el-input v-model="query.value" clearable placeholder="输入名称搜索" style="width: 200px;" class="filter-item" @keyup.enter.native="toQuery"/>
+      <el-input v-model="query.value" clearable placeholder="输入岗位名称搜索" style="width: 200px;" class="filter-item" @keyup.enter.native="toQuery"/>
+      <el-date-picker
+        v-model="query.date"
+        type="daterange"
+        range-separator=":"
+        class="el-range-editor--small filter-item"
+        style="height: 30.5px;width: 220px"
+        value-format="yyyy-MM-dd HH:mm:ss"
+        start-placeholder="开始日期"
+        end-placeholder="结束日期"/>
       <el-select v-model="query.enabled" clearable placeholder="状态" class="filter-item" style="width: 90px" @change="toQuery">
         <el-option v-for="item in enabledTypeOptions" :key="item.key" :label="item.display_name" :value="item.key"/>
       </el-select>
       <el-button class="filter-item" size="mini" type="success" icon="el-icon-search" @click="toQuery">搜索</el-button>
       <!-- 新增 -->
-      <div v-permission="['admin','dept:add']" style="display: inline-block;margin: 0px 2px;">
+      <div v-permission="['admin','job:add']" style="display: inline-block;margin: 0px 2px;">
         <el-button
           class="filter-item"
           size="mini"
@@ -17,9 +26,18 @@
           icon="el-icon-plus"
           @click="add">新增</el-button>
       </div>
+      <!-- 导出 -->
+      <div style="display: inline-block;">
+        <el-button
+          :loading="downloadLoading"
+          size="mini"
+          class="filter-item"
+          type="warning"
+          icon="el-icon-download"
+          @click="download">导出</el-button>
+      </div>
     </div>
     <!--表单组件-->
-    <!-- <eForm ref="form" :is-add="isAdd" :dicts="dicts"/> -->
     <!--表格渲染-->
     <el-table v-loading="loading" :data="data" size="small" style="width: 100%;">
       <el-table-column prop="topicName" label="投票标题"/>
@@ -28,18 +46,13 @@
           {{ scope.row.sort }}
         </template>
       </el-table-column>
-      
-      <el-table-column prop="username" label="创建人员">
-        <template slot-scope="scope">
-          {{ scope.row }}
-        </template>
-      </el-table-column> 
-    
       <el-table-column label="状态" align="center">
         <template slot-scope="scope">
-          <div v-for="item in dicts" :key="item.id">
-            <el-tag v-if="scope.row.enabled.toString() === item.value" :type="scope.row.enabled ? '' : 'info'">{{ item.label }}</el-tag>
-          </div>
+          <el-switch
+            v-model="scope.row.enabled"
+            active-color="#409EFF"
+            inactive-color="#F56C6C"
+            @change="changeEnabled(scope.row, scope.row.enabled,)"/>
         </template>
       </el-table-column>
       <el-table-column prop="createTime" label="创建日期">
@@ -47,10 +60,12 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column v-if="checkPermission(['admin','dept:edit','dept:del'])" label="操作" width="130px" align="center" fixed="right">
+
+      <el-table-column v-if="checkPermission(['admin','job:edit','job:del'])" label="操作" width="130px" align="center" fixed="right">
         <template slot-scope="scope">
-          <el-button size="mini" type="primary" v-permission="['admin','dept:edit']" icon="el-icon-edit" @click="edit(scope.row)"/>
+          <el-button v-permission="['admin','job:edit']" size="mini" type="primary" icon="el-icon-edit" @click="edit(scope.row)"/>
           <el-popover
+            v-permission="['admin','job:del']"
             :ref="scope.row.id"
             placement="top"
             width="180">
@@ -72,13 +87,13 @@
       layout="total, prev, pager, next, sizes"
       @size-change="sizeChange"
       @current-change="pageChange"/>
-
   </div>
 </template>
 
 <script>
 import checkPermission from '@/utils/permission'
 import initData from '@/mixins/initData'
+
 // import initDict from '@/mixins/initDict'
 import { del } from '@/api/vote'
 import { parseTime } from '@/utils/index'
@@ -88,13 +103,22 @@ export default {
   components: {  },
   mixins: [initData],
   dicts: ['dept_status'],  
+  
+/*=======
+import { del, edit} from '@/api/vote'
+import { parseTime} from '@/utils/index'
+export default {
+  name: 'Job',
+  mixins: [initData],
+  设置数据字典
+  dicts: ['job_status'],
+>>>>>>> 6a152f3626154107f65e0c0424aebcc6070ff329 */
   data() {
     return {
-      isAdd: false,
       delLoading: false,
       enabledTypeOptions: [
-        { key: 'true', display_name: '发布' },
-        { key: 'false', display_name: '下线' }
+        { key: 'true', display_name: '正常' },
+        { key: 'false', display_name: '禁用' }
       ]
     }
   },
@@ -108,7 +132,7 @@ export default {
   },
   methods: {
     parseTime,
-    // checkPermission,
+    checkPermission,
     beforeInit() {
       this.url = 'api/voteTopic'
       const sort = 'sort,asc'
@@ -117,6 +141,10 @@ export default {
       const value = query.value
       const enabled = query.enabled
       if (value) { this.params['name'] = value }
+      if (query.date) {
+        this.params['startTime'] = query.date[0]
+        this.params['endTime'] = query.date[1]
+      }
       if (enabled !== '' && enabled !== null) { this.params['enabled'] = enabled }
       return true
     },
@@ -138,39 +166,57 @@ export default {
         console.log(err.response.data.message)
       })
     },
-    add() { 
-      /*
+    add() {
       this.isAdd = true
       this.$refs.form.getDepts()
       this.$refs.form.dialog = true
-      */
-
-      this.$router.push({
-            path: '/vote/addvote',
-      })
-
     },
     edit(data) {
-      /*
       this.isAdd = false
-      debugger;
       const _this = this.$refs.form
-      // _this.getDepts()
+      _this.getDepts()
       _this.form = {
         id: data.id,
         name: data.name,
         sort: data.sort,
         enabled: data.enabled.toString(),
         createTime: data.createTime,
-        // dept: { id: data.dept.id }
+        dept: { id: data.dept.id }
       }
-      // _this.deptId = data.dept.id
+      _this.deptId = data.dept.id
       _this.dialog = true
-      */
-        this.$router.push({
-              path: '/vote/editvote',
-        });
     },
+    // 改变状态
+    changeEnabled(data, val) {
+      this.$confirm('此操作将 "' + this.dict.label.job_status[val] + '" ' + data.name + '岗位, 是否继续？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        edit(data).then(res => {
+          this.$notify({
+            title: this.dict.label.job_status[val] + '成功',
+            type: 'success',
+            duration: 2500
+          })
+        }).catch(err => {
+          data.enabled = !data.enabled
+          console.log(err.response.data.message)
+        })
+      }).catch(() => {
+        data.enabled = !data.enabled
+      })
+    },
+    download() {
+      this.beforeInit()
+      this.downloadLoading = true
+      downloadJob(this.params).then(result => {
+        downloadFile(result, '岗位列表', 'xlsx')
+        this.downloadLoading = false
+      }).catch(() => {
+        this.downloadLoading = false
+      })
+    }
   }
 }
 </script>
