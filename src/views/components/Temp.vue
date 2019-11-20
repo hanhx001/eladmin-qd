@@ -1,6 +1,6 @@
 <template>
   <div style="width:1100px;position:relative;">
-    <div class="sort">{{(cindex+1) + '.'}}</div>
+    <div class="sort" v-show="cchecked">{{(cindex+1) + '.'}}</div>
     <div class="template-create" ref="temp">
       <div class="input-list">
         <div class="select-active">
@@ -8,9 +8,10 @@
           <el-input
             type="text"
             placeholder="请输入标题"
-            v-model="textTitle"
-            @input="inputTitle(textTitle)"
+            v-bind:value="text.name"
+            @input="inputTitle"
           ></el-input>
+
         </div>
         <div class="select-active">
           <div>选项描述:</div>
@@ -18,27 +19,42 @@
             type="textarea"
             :rows="3"
             placeholder="请输入描述"
-            @input="inputArea(textarea)"
-            v-model="textarea"
+            @input="inputArea"
+            v-bind:value="text.description"
           ></el-input>
         </div>
         <div class="select-active">
           <div>链接:</div>
-          <el-input type="text" placeholder="请输入链接" v-model="textLink" @input="inputLink(textLink)"></el-input>
+          <el-input type="text" placeholder="请输入链接" v-bind:value="text.url" @input="inputLink"></el-input>
         </div>
       </div>
       <div class="upLoader">
-        <el-upload
+        <!--<el-upload
           class="upload-demo"
-          action="https://jsonplaceholder.typicode.com/posts/"
+          :action="updateVote + '?name='"
+          :headers="headers"
+          :before-upload="beforeUpload"
+          :on-success="handleSuccess"
           :on-preview="handlePreview"
           :on-remove="handleRemove"
-          :file-list="fileList"
           :limit="1"
+          :multiple="false"
+          :file-list="fileList"
           list-type="picture"
         >
           <el-button size="small" type="primary">点击上传</el-button>
-          <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过500kb</div>
+          <div slot="tip" class="el-upload__tip">只能上传jpg/png文件，且不超过5M</div>
+        </el-upload> -->
+
+        <el-upload
+          class="avatar-uploader"
+          :action="updateVote + '?name='"
+          :headers="headers"
+          :show-file-list="false"
+          :on-success="handleAvatarSuccess"
+          :before-upload="beforeAvatarUpload">
+          <img v-if="text.appfilepath" :src="text.appfilepath" class="avatar">
+          <i v-else class="el-icon-plus avatar-uploader-icon"></i>
         </el-upload>
       </div>
       <div class="clear"></div>
@@ -50,6 +66,8 @@
 
 <script>
 import { mapGetters } from "vuex";
+import { getToken } from '@/utils/auth';
+import {update, updatedEdit, updatedEel} from "@/api/vote";
 
 export default {
   name: "Temp",
@@ -57,46 +75,87 @@ export default {
     cindex: {
       type: Number,
       default: ""
+    },
+    cchecked: {
+      type: Boolean,
+      default: false
+    },
+    citem: {
+      type: Array,
+      default: function() {
+        return Array
+      }
     }
   },
   computed: {
-    ...mapGetters(["imagesUploadApi"])
+    ...mapGetters(["imagesUploadApi", "updateVote", "baseApi"])
   },
   data() {
     return {
-      textarea: "",
-      textTitle: "",
-      textLink: "",
-      fileList: [
-        {
-          name: "food.jpeg",
-          url:
-            "https://fuss10.elemecdn.com/3/63/4e7f3a15429bfda99bce42a18cdd1jpeg.jpeg?imageMogr2/thumbnail/360x360/format/webp/quality/100"
-        }
-      ]
+      text: {
+        name: this.citem[this.cindex].name,
+        description: this.citem[this.cindex].description,
+        url: this.citem[this.cindex].url,
+        appfilepath: this.citem[this.cindex].appfilepath,
+        id: this.citem[this.cindex].id
+      },
+      index: this.cindex,
+      headers: { 'Authorization': 'Bearer ' + getToken() },
+      fileList: [],
+      imageUrl: ''
     };
   },
-  mounted() {},
+  watch: {
+    text(newV, oldV) {
+        this.$emit('uploadData', {index: this.cindex, data: newV})
+    },
+    citem(newV, oldV) {
+        if (newV.length !== 0) {
+          this.text = {...newV[this.cindex]}
+        }
+    }
+  },
   methods: {
-    handleRemove(file, fileList) {
-      console.log( file, fileList )
+    beforeAvatarUpload(file) {
+        const isLt2M = file.size / 1024 / 1024 < 5;
+        if (!isLt2M) {
+          this.$message.error('上传头像图片大小不能超过 2MB!');
+        }
+        return isLt2M;
     },
-    handlePreview(file) {
-      console.log  (file)
+    handleAvatarSuccess(response, file) {
+      this.dialog = false
+      this.text.appfilepath = this.baseApi + '/file/' + response.webpath
+      this.$emit( "updateimg", {url: this.text.appfilepath, idx: this.index})
     },
+    // handleSuccess(response, file, fileList) {
+    //   console.log(response, file, fileList, this.baseApi)
+    //   this.dialog = false
+    //   this.text.picUrl = this.baseApi + '/file/' + response.webpath
+    //   this.$emit( "updateimg", {url: this.text.picUrl, idx: this.index})
+    // },
+    // handleRemove(file, fileList) {
+    //   console.log( file, fileList, 'remove' )
+    //   this.text.picUrl = ''
+    //   this.$emit( "updateremoveimg", {url: this.text.picUrl, idx: this.index})
+    // },
+    // handlePreview(file) {
+    //   console.log(file, 'preview')
+    // },
     close(item) {
-      this.$emit( "parsetemp", item )
+      this.$emit( "parsetemp", {url: this.cindex, idx: this.index})
     },
-    inputTitle() {
-      console.log( this.textTitle )
-      this.$emit( "inputtitle", this.textTitle )
+    inputTitle(val) {
+      this.text.name = val
+      this.$emit( "inputtitle", {title: this.text.name, idx: this.index})
     },
-    inputArea() {
-      console.log( this.textarea )
-      this.$emit( "inputarea", this.textarea )
+    inputArea(val) {
+      this.text.description = val
+      this.$emit( "inputarea", {area:this.text.description, idx: this.index} )
     },
-    inputLink() {
-      this.$emit( "inputlink", this.textLink )
+    inputLink(val) {
+      this.text.url = val
+      this.$emit( "inputlink", {url:this.text.url, idx: this.index})
     }
   }
 }
@@ -147,4 +206,27 @@ export default {
 .clear {
   clear: both;
 }
+.avatar-uploader .el-upload {
+    border: 1px dashed #d9d9d9;
+    border-radius: 6px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+  .avatar-uploader .el-upload:hover {
+    border-color: #409EFF;
+  }
+  .avatar-uploader-icon {
+    font-size: 28px;
+    color: #8c939d;
+    width: 178px;
+    height: 178px;
+    line-height: 178px;
+    text-align: center;
+  }
+  .avatar {
+    width: 178px;
+    height: 178px;
+    display: block;
+  }
 </style>

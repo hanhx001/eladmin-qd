@@ -3,22 +3,14 @@
     <!--工具栏-->
     <div class="head-container">
       <!-- 搜索 -->
-      <el-input v-model="query.value" clearable placeholder="输入岗位名称搜索" style="width: 200px;" class="filter-item" @keyup.enter.native="toQuery"/>
-      <el-date-picker
-        v-model="query.date"
-        type="daterange"
-        range-separator=":"
-        class="el-range-editor--small filter-item"
-        style="height: 30.5px;width: 220px"
-        value-format="yyyy-MM-dd HH:mm:ss"
-        start-placeholder="开始日期"
-        end-placeholder="结束日期"/>
-      <el-select v-model="query.enabled" clearable placeholder="状态" class="filter-item" style="width: 90px" @change="toQuery">
+      <el-input v-model="query.value" clearable placeholder="输入岗位名称搜索" style="width: 200px;" class="filter-item"/>
+
+      <el-select v-model="query.enabled" clearable placeholder="状态" class="filter-item" style="width: 90px">
         <el-option v-for="item in enabledTypeOptions" :key="item.key" :label="item.display_name" :value="item.key"/>
       </el-select>
-      <el-button class="filter-item" size="mini" type="success" icon="el-icon-search" @click="toQuery">搜索</el-button>
+      <el-button class="filter-item" size="mini" type="success" icon="el-icon-search" @click="_toQuery">搜索</el-button>
       <!-- 新增 -->
-      <div v-permission="['admin','job:add']" style="display: inline-block;margin: 0px 2px;">
+      <div style="display: inline-block;margin: 0px 2px;">
         <el-button
           class="filter-item"
           size="mini"
@@ -26,7 +18,7 @@
           icon="el-icon-plus"
           @click="add">新增</el-button>
       </div>
-      <!-- 导出 -->
+      <!-- 导出
       <div style="display: inline-block;">
         <el-button
           :loading="downloadLoading"
@@ -36,43 +28,45 @@
           icon="el-icon-download"
           @click="download">导出</el-button>
       </div>
+      -->
     </div>
     <!--表单组件-->
     <!--表格渲染-->
-    <el-table v-loading="loading" :data="data" size="small" style="width: 100%;">
-      <el-table-column prop="topicName" label="投票标题"/>
-      <el-table-column prop="sort" label="排序">
+    <el-table v-loading="loading" :data="data" size="small" style="width: 100%;" class="table-temp">
+      <el-table-column prop="sort" label="序号" width="50" align="center" type="index" :index="indexMethod">
+        <!-- <template slot-scope="scope">
+          {{ scope.row }}
+        </template> -->
+      </el-table-column>
+      <el-table-column prop="topicName" label="投票标题" align="center" />
+      <el-table-column prop="sort" label="人员" width="200" align="center">
         <template slot-scope="scope">
-          {{ scope.row.sort }}
+          {{ scope.row.operator }}
         </template>
       </el-table-column>
-      <el-table-column label="状态" align="center">
-        <template slot-scope="scope">
-          <el-switch
-            v-model="scope.row.enabled"
-            active-color="#409EFF"
-            inactive-color="#F56C6C"
-            @change="changeEnabled(scope.row, scope.row.enabled,)"/>
+      <el-table-column label="状态" align="center" width="100">
+       <template slot-scope="scope">
+          {{ scope.row.enabled ? '发布' : '下线'}}
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="创建日期">
+      <el-table-column prop="createTime" label="创建日期" width="280" align="center">
         <template slot-scope="scope">
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
 
-      <el-table-column v-if="checkPermission(['admin','job:edit','job:del'])" label="操作" width="130px" align="center" fixed="right">
+      <el-table-column label="操作" width="130px" align="center" fixed="right">
         <template slot-scope="scope">
           <el-button v-permission="['admin','job:edit']" size="mini" type="primary" icon="el-icon-edit" @click="edit(scope.row)"/>
           <el-popover
             v-permission="['admin','job:del']"
-            :ref="scope.row.id"
+            :ref="scope.$index"
             placement="top"
             width="180">
             <p>确定删除本条数据吗？</p>
             <div style="text-align: right; margin: 0">
               <el-button size="mini" type="text" @click="$refs[scope.row.id].doClose()">取消</el-button>
-              <el-button :loading="delLoading" type="primary" size="mini" @click="subDelete(scope.row.id)">确定</el-button>
+              <el-button :loading="delLoading" type="primary" size="mini" @click="subDelete(scope.$index, scope.row.id)">确定</el-button>
             </div>
             <el-button slot="reference" type="danger" icon="el-icon-delete" size="mini"/>
           </el-popover>
@@ -92,42 +86,34 @@
 
 <script>
 import checkPermission from '@/utils/permission'
-import initData from '@/mixins/initData'
-
-// import initDict from '@/mixins/initDict'
-import { del } from '@/api/vote'
+import { del, query } from '@/api/vote'
 import { parseTime } from '@/utils/index'
 
 export default {
   name: 'voteList',
   components: {  },
-  mixins: [initData],
-  dicts: ['dept_status'],  
-  
-/*=======
-import { del, edit} from '@/api/vote'
-import { parseTime} from '@/utils/index'
-export default {
-  name: 'Job',
-  mixins: [initData],
-  设置数据字典
-  dicts: ['job_status'],
->>>>>>> 6a152f3626154107f65e0c0424aebcc6070ff329 */
+  dicts: ['dept_status'],
   data() {
     return {
+      data: [],
       delLoading: false,
+      loading: false,
+      page: 0,
+      total: 0,
+      size: 10,
+      query: {
+        value: '',
+        enabled: ''
+      },
       enabledTypeOptions: [
-        { key: 'true', display_name: '正常' },
-        { key: 'false', display_name: '禁用' }
+        { key: 'true', display_name: '发布' },
+        { key: 'false', display_name: '下线' }
       ]
     }
   },
   created() {
-    //console.log(this.dict.vote_status)
     this.$nextTick(() => {
-      this.init()
-      // 加载数据字典
-      // this.getDict('vote_status')
+      this._toQuery('init');
     })
   },
   methods: {
@@ -148,43 +134,70 @@ export default {
       if (enabled !== '' && enabled !== null) { this.params['enabled'] = enabled }
       return true
     },
-    subDelete(id) {
+    subDelete(idx, id) {
       this.delLoading = true
       del(id).then(res => {
         this.delLoading = false
-        this.$refs[id].doClose()
+        this.$refs[idx].doClose()
+        this.data.splice(idx, 1)
         this.dleChangePage()
-        this.init()
         this.$notify({
           title: '删除成功',
           type: 'success',
           duration: 2500
         })
+        this._toQuery();
       }).catch(err => {
         this.delLoading = false
-        this.$refs[id].doClose()
-        console.log(err.response.data.message)
+        this.$refs[idx].doClose()
       })
     },
+    dleChangePage(size) {
+      if (size === undefined) {
+        size = 1
+      }
+      if (this.data.length === size && this.page !== 0) {
+        this.page = this.page - 1
+      }
+    },
     add() {
-      this.isAdd = true
-      this.$refs.form.getDepts()
-      this.$refs.form.dialog = true
+      this.$router.push({
+        path: '/vote/addvote',
+      })
     },
     edit(data) {
-      this.isAdd = false
-      const _this = this.$refs.form
-      _this.getDepts()
-      _this.form = {
-        id: data.id,
-        name: data.name,
-        sort: data.sort,
-        enabled: data.enabled.toString(),
-        createTime: data.createTime,
-        dept: { id: data.dept.id }
+      this.$router.push({
+        path: '/vote/editvote?id=' + data.id,
+      });
+    },
+    _toQuery(str) {
+      var data = {
+        page: this.page,
+        size: this.size,
+        enabled: this.query.enabled,
+        topicName: this.query.value
       }
-      _this.deptId = data.dept.id
-      _this.dialog = true
+      this.loading = true
+      query(data).then(res => {
+        this.loading = false
+        this.data = res.content
+        this.total = res.totalElements
+      }).catch(err => {
+        console.log(err)
+      }).catch(() => {
+        
+      })
+    },
+    indexMethod(index) {
+      return index + 1 + this.size * this.page
+    },
+    pageChange(e) {
+      this.page = e - 1
+      this._toQuery()
+    },
+    sizeChange(e) {
+      this.page = 0
+      this.size = e
     },
     // 改变状态
     changeEnabled(data, val) {
@@ -222,5 +235,7 @@ export default {
 </script>
 
 <style scoped>
-
+    .table-temp div.cell{
+      text-align: center!important;
+    }
 </style>

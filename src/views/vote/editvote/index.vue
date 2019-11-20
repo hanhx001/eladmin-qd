@@ -10,7 +10,7 @@
                   class="input-title"
                   type="text"
                   placeholder="请输入内容"
-                  v-model="text"
+                  v-model="textTitle"
                   maxlength="128"
                   show-word-limit
                 >
@@ -21,13 +21,13 @@
           <el-col :span="18">
             <div class="editor-active">
               <div>投票活动描述:</div>
-              <div ref="editorActive" style="text-align:left;margin: 5px;margin-left:0px;"></div>
+              <div ref="editorActive" style="text-align:left;margin: 5px;margin-left:0px;"  v-html="editorContent"></div>
             </div>
           </el-col>
           <el-col :span="18">
             <div class="editor-active">
                 <div>完成投票显示信息:</div>
-                <div ref="editorInfo" style="text-align:left;margin: 5px;margin-left:0px;"></div>           
+                <div ref="editorInfo" style="text-align:left;margin: 5px;margin-left:0px;"  v-html="editorContent2"></div>           
             </div>
           </el-col>
           <el-col :span="20"><div style="height:30px;"></div></el-col>
@@ -40,57 +40,22 @@
 
       </el-tab-pane>
       <el-tab-pane label="投票选项" name="second">
-        <div><el-checkbox v-model="checked">启用编号</el-checkbox></div>
-       <!-- <div class="template-create">
-            <div class="input-list">
-              <div class="select-active">
-                <div>选项标题:</div>
-                <el-input
-                      type="text"
-                      placeholder="请输入标题"
-                      v-model="text"
-                    >
-                </el-input>
-              </div>
-              <div class="select-active">
-                <div>选项描述:</div>
-                <el-input
-                  type="textarea"
-                  :rows="3"
-                  placeholder="请输入描述"
-                  v-model="textarea">
-                </el-input>
-              </div>
-              <div class="select-active">
-                  <div>链接:</div>
-                  <el-input
-                        type="text"
-                        placeholder="请输入链接"
-                        v-model="text"
-                      >
-                  </el-input>
-              </div>
-            </div>
-            <div class="upLoader">
-               <el-upload
-                :on-preview="handlePictureCardPreview"
-                :before-remove="handleBeforeRemove"
-                :on-success="handleSuccess"
-                :on-error="handleError"
-                :headers="headers"
-                :file-list="fileList"
-                :action="imagesUploadApi"
-                list-type="picture-card">
-                <i class="el-icon-plus"/>
-              </el-upload>
-            </div>
-            <div class="clear"></div> 
-            </div>-->
-
-           
-            <Temp rel="test"  v-for="(item,index) in counter" :key="index" @parsetemp="closeindex"  v-bind:cindex="index"></Temp>
-            
-        
+        <div><el-checkbox v-model="checked">启用编号</el-checkbox></div>     
+            <Temp rel="test" v-for="(item,index) in counter" 
+                  :key="index"
+                  :cindex="index" 
+                  :cchecked="checked"
+                  :citem="counter"
+                  :cid="editID"
+                  @parsetemp="closeindex" 
+                  @inputtitle="cinputtitle"
+                  @inputarea="cinputarea"
+                  @inputlink="cinputlink"
+                  @updateimg="cupdateimg"
+                  @updateremoveimg="cupdateremoveimg"
+                  @uploadData="getData"
+            >
+            </Temp>
         <el-row>
           <div class="elRow">
             <el-col :span="18">
@@ -103,7 +68,7 @@
           </div>
         </el-row>
       </el-tab-pane>
-      <el-tab-pane label="功能设置" name="third">
+      <el-tab-pane label="功能设置" name="third" :disabled="active">
         
         <el-row>
           <el-col>
@@ -112,12 +77,12 @@
                 <el-date-picker
                   class="picker"
                   v-model="date"
-                  type="daterange"
+                  type="datetimerange"
                   align="right"
                   unlink-panels
                   range-separator="至"
-                  start-placeholder="开始日期"
-                  end-placeholder="结束日期"
+                  start-placeholder="开始时间"
+                  end-placeholder="结束时间"
                   value-format="timestamp"
                   :picker-options="pickerOptions">
                 </el-date-picker>
@@ -126,9 +91,9 @@
             <div>
               <div class="vote-radio">投票选项设置:
                 <span></span>
-                <el-radio v-model="radio" label="单选">单选</el-radio>
-                <el-radio v-model="radio" label="多选">多选</el-radio>
-                <el-radio v-model="radio" label="一键投票">一键投票</el-radio>
+                <el-radio v-model="radio" label="1">单选</el-radio>
+                <el-radio v-model="radio" label="2">多选</el-radio>
+                <el-radio v-model="radio" label="3">一键投票</el-radio>
               </div>
             </div>
             <div>
@@ -176,7 +141,7 @@
         </div>
 
       </el-tab-pane>
-      <el-tab-pane label="发布设置" name="fourth">
+      <el-tab-pane label="发布设置" name="fourth" :disabled="active">
         <el-row>
           <el-col :span="18">
             <div class="vote-copy">
@@ -206,7 +171,6 @@
       </el-tab-pane>
     </el-tabs>
 
-
   </div>
 </template>
 
@@ -215,38 +179,13 @@
 import { mapGetters } from 'vuex'
 import E from 'wangeditor'
 import { getToken } from '@/utils/auth'
-
-import { add, edit } from '@/api/vote'
+import { parseTime } from '@/utils/index'
+import { editVote, edit } from '@/api/vote'
 import Treeselect from '@riophae/vue-treeselect'
 import clip from '@/utils/clipboard'
 import '@riophae/vue-treeselect/dist/vue-treeselect.css'
 import Temp from '../../components/Temp'
-/*
-var temp = '';
-    temp = '<div class="template-create">' +
-               '<div class="input-list">' +
-                     '<div class="select-active">' +
-                      '<div>选项标题:</div>' +
-                      '<el-input type="text" placeholder="请输入标题" v-model="text"></el-input>' +
-                  '</div>' +
-                   '<div class="select-active">' +
-                        '<div>选项描述:</div>' +
-                      '<el-input type="textarea" :rows="3" placeholder="请输入描述" v-model="textarea"></el-input>' +
-                    '</div>' +
-                    '<div class="select-active">' +
-                        '<div>链接:</div>' +
-                        '<el-input type="text" placeholder="请输入链接" v-model="text"></el-input>' +
-                    '</div>' +
-                  '</div>' +
-                  '<div class="upLoader">' +
-                    '<el-upload :on-preview="handlePictureCardPreview" :before-remove="handleBeforeRemove" :on-success="handleSuccess" :on-error="handleError" :headers="headers" :file-list="fileList" :action="imagesUploadApi" list-type="picture-card">' +
-                      '<i class="el-icon-plus"/>' +
-                    '</el-upload>' +
-                  '</div>' +
-                  '<div class="close el-icon-close"></div>' + 
-                  '<div class="clear"></div>' +
-              '</div>'
-*/
+
 var editor, editor2;
 export default {
   name:'addVote',
@@ -258,31 +197,35 @@ export default {
   },
   data() {
     return {
-      text:'',
-      textarea:'',
-      date:'',
+      textTitle:'',
+      name:'',
+      description:'',
+      url:'',
+      appfilepath:'',
+      date:[],
       radio:'',
       checked: false,
+      flag: true,
       options: [{
-        value: '选项24小时',
+        value: '1',
         label: '24小时内不能重复投票'
       }, {
-        value: '选项12小时',
+        value: '2',
         label: '12小时内不能重复投票'
       },{
-        value: '选项10票',
+        value: '3',
         label: '每个自然日可投10票'
       },{
-        value: '选项50票',
+        value: '4',
         label: '每个自然日可投50票'
       }],
       value: '',
       headers: {
         'Authorization': 'Bearer ' + getToken()
       },
-      counter: [{textTitle: '111', textarea: '222', textLink: '333'}],
-      editorContentActive:'kasjf',
-      editorContentInfo:'dsfafd',
+      counter: [{name: this.text, description: this.textarea, url: this.link, appfilepath: this.appfilepath, filepath: this.appfilepath, id: ''}],
+      editorContentActive:'',
+      editorContentInfo:'',
       address: 'http://wwww.baidu.com',
       activeName: 'first',
       PCradio: '',
@@ -302,7 +245,11 @@ export default {
         name: [
           { required: true, message: '请输入名称', trigger: 'blur' }
         ]
-      }
+      },
+      editorContent: '',
+      editorContent2: '',
+      editID: '',
+      active: false
     }
   },
   mounted() {
@@ -321,6 +268,7 @@ export default {
           'undo',  // 撤销
           'redo'  // 重复
       ]
+
       editor = new E(this.$refs.editorActive)
       editor.customConfig.menus = config
       editor.customConfig.uploadImgShowBase64 = true // 使用 base64 保存图片
@@ -347,12 +295,45 @@ export default {
       }
       editor2.create()
   },
+  created() {
+      let id = window.location.href.split("?id=")[1]
+      this.editID = id
+      editVote(id).then(data => {
+        console.log(data)
+        this.textTitle = data.topicName
+        editor.txt.html(data.description)
+        editor2.txt.html(data.successInfo)
+        this.editorContentActive = data.description
+        this.editorContentInfo = data.successInfo
+        this.date.push(data.beginTime, data.endTime)
+        this.checked = data.enabled
+        this.counter = data.voteData
+        this.radio = data.voteOption.toString()
+        this.PCradio = data.displayOption.split(',')[0]
+        this.Mradio = data.displayOption.split(',')[1]
+        this.options.forEach(el => {
+          if (el.value == data.cheat) {
+            this.valueIP = el.value
+          }
+        });
+        this.voteAddress = data.url
+      }).catch(err => {
+        console.log(err)
+      })
+    
+  },
   methods: {
     nextFrist() {
       this.activeName = 'second'
     },
     nextSecond() {
-      this.activeName = 'third'
+      if (this.counter.length > 0) {
+        this.publicTip('next')
+        this.activeName = 'third'
+      } else {
+        this.active = true
+        this.alertError('请填写投票选项...')
+      }
     },
     prevSecond() {
       this.activeName = 'first'
@@ -370,42 +351,178 @@ export default {
       this.activeName = 'third'
     },
     complete() {
-      editor.txt.clear()
-      editor2.txt.clear()
-      console.log( this.$refs)
+      var time = (this.date).toString(),
+        beginTime = parseTime(Number(time.split(',')[0])),
+        endTime = parseTime(Number(time.split(',')[1]));
+
       console.log(
-        '投票活动标题:' + this.text, 
+        '投票活动标题:' + this.textTitle, 
         "投票活动描述:" + this.editorContentActive, 
         "完成投票显示信息:" + this.editorContentInfo,
-        "投票时间设置:" + this.date,
+        "投票时间设置:" + beginTime + ',' + endTime,
         "投票选项设置: " + this.radio,
         "排版设置:" + this.PCradio, this.Mradio,
         "IP限制: " + this.valueIP,
         "系统自动生成地址:" + this.copyAddress,
         "投票活动地址设置:" + this.voteAddress,
-        "test:" + this.$refs
         )
+        console.log(this.counter)
+        var data = {
+            beginTime: beginTime,
+            cheat: this.valueIP,
+            description: this.editorContentActive,
+            displayOption: this.PCradio + ',' + this.Mradio,
+            endTime: endTime,
+            successInfo: this.editorContentInfo,
+            topicName: this.textTitle,
+            url: this.voteAddress,
+            voteData: this.counter,
+            voteOption: this.radio,
+            id: this.editID
+          }
+        this.delLoading = true
+        edit(data).then(data => {
+          this.$message({
+            message: '修改成功',
+            type: 'success'
+          });
+        }).catch(err => {
+
+        })
     },
     handleCopy(text, event) {
       clip(text, event)
       this.copyAddress = text
     },
     handleClick(tab, event) {  
-      console.log(tab, event);
+      if (!this.counter.length && tab.name == 'third') {
+        this.alertError('请填写投票选项...')
+      }
     },
     addOptions() {
-      this.counter.push('1')
+      this.publicTip('add')
+    },
+    cinputlink(obj) {
+      if (this.counter[obj.idx]) {
+        this.counter[obj.idx].url = obj.url
+        this.flag = !1
+      }
+      else {
+        this.url = obj.url
+        this.flag = !0
+      }
+    },
+    cinputarea(obj) {
+      if (this.counter[obj.idx]) {
+        this.counter[obj.idx].description = obj.area
+        this.flag = !1
+      }
+      else {
+        this.description = obj.area
+        this.flag = !0
+      }
+    },
+    cinputtitle(obj) {
+      if (this.counter[obj.idx]) {
+        this.counter[obj.idx].name = obj.title
+        this.flag = !1
+      }
+      else {
+        this.name = obj.title
+        this.flag = !0
+      }
+    },
+    cupdateimg(obj) {
+      if (this.counter[obj.idx]) {
+        this.counter[obj.idx].filepath = obj.url
+        this.counter[obj.idx].appfilepath = obj.url
+        this.flag = !1
+      }
+      else {
+        this.appfilepath = obj.url
+        this.flag = !0
+      }
+    },
+    cupdateremoveimg(obj) {
+      if (this.counter[obj.idx]) {
+        this.counter[obj.idx].filepath = obj.url
+        this.counter[obj.idx].appfilepath = obj.url
+        this.flag = !1
+      }
+      else {
+        this.appfilepath = obj.url
+        this.flag = !0
+      }
+      
     },
     pickerOptions() {
 
     },
-    closeindex(data) {
-      console.log(data)
+    closeindex(idx) {
+
+      if (!this.counter[this.counter.length - 1].name && !this.counter[this.counter.length - 1].description && !this.counter[this.counter.length - 1].url) {
+          this.counter[this.counter.length - 1].name = this.text
+          this.counter[this.counter.length - 1].description = this.textarea
+          this.counter[this.counter.length - 1].url = this.link
+          this.counter[this.counter.length - 1].appfilepath = this.appfilepath
+          this.counter[this.counter.length - 1].filepath = this.appfilepath
+      }
+      
+      let arr = this.counter
+      arr.splice(idx.idx,1)
+      this.counter = arr
+      if (this.counter.length == 0) {
+        this.active = true
+      } else {
+        this.active = false
+      }
+    },
+    getData(val) {
+      let index = val.index
+      this.counter[index] = val.data
+    },
+    publicTip(str) {
+        var self = this
+        if (!this.counter.length) {
+           this.active = false
+           this.counter.push({name:'', description: '', url: '', appfilepath: '', filepath: ''})
+           return
+        }
+
+        if (this.name && this.description && this.url && this.flag) {
+          this.counter[this.counter.length - 1].name = this.name
+          this.counter[this.counter.length - 1].description = this.description
+          this.counter[this.counter.length - 1].url = this.url
+          this.counter[this.counter.length - 1].appfilepath = this.appfilepath
+          this.counter[this.counter.length - 1].filepath = this.appfilepath
+        }
+
+        if (str == 'add' && this.counter[this.counter.length - 1].url && this.counter[this.counter.length - 1].name && this.counter[this.counter.length - 1].description) {
+          this.counter.push({name:'', description: '', url: '',  appfilepath: '', filepath: ''})
+          this.name = ''
+          this.description = ''
+          this.url = ''
+          this.appfilepath = ''
+        }
+        /*
+        this.counter.forEach(el => {
+          if (!el.url || !el.name || !el.description) {
+              this.alertError('选项不能为空')
+          }
+        })
+        */
+    },
+    alertSuccess() {
+      this.$message({
+        message: '添加成功',
+        type: 'success'
+      });
+    },
+    alertError(str) {
+      this.$message.error(str)
     }
   }
 }
-
-
 
 </script>
 
@@ -467,8 +584,11 @@ export default {
   .el-select{
     padding-left:67px;
   }
+  .picker{
+    width:500px;
+  }
   .el-picker-panel, .el-date-range-picker, .el-popper{
-    margin-left: 174px;
+    margin-left: 204px;
   }
   .vote-copy{
      padding-top:10px;
@@ -490,5 +610,8 @@ export default {
     width: 560px;
     padding-top: 50px;
     text-align: right;
+  }
+  .ctemp{
+    width:1100px;
   }
 </style>

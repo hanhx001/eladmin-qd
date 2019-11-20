@@ -1,4 +1,5 @@
 const baseUrl = process.env.BASE_API
+
 const api = {
   state: {
     // 实时控制台
@@ -7,6 +8,8 @@ const api = {
     imagesUploadApi: baseUrl + '/api/pictures',
     // 修改头像
     updateAvatarApi: baseUrl + '/api/users/updateAvatar',
+    // 投票上传图片
+    updateVote: baseUrl + '/api/localStorage',
     // 上传文件到七牛云
     qiNiuUploadApi: baseUrl + '/api/qiNiuContent',
     // Sql 监控
