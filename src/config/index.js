@@ -9,7 +9,7 @@ export default {
   /**
    * @description 记住密码状态下的密码在Cookie中存储的天数，默认1天
    */
-  passCookieExpires: 1,
+  passCookieExpires:  1,
   /**
    * @description 此处修改网站名称
    */
